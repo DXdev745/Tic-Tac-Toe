@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe</title>
+    <!-- Tailwind CSS CDN for basic styling and responsiveness -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom CSS for Tic Tac Toe board and cells */
+        body {
+            /* Updated font-family for iOS-like appearance */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f2f5; /* Default light gray background */
+            margin: 0;
+            padding: 20px; /* Add some padding for smaller screens */
+            box-sizing: border-box; /* Include padding in element's total width and height */
+            transition: background-color 0.5s ease; /* Smooth transition for background color */
+        }
+
+        .game-container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 15px; /* Rounded corners */
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1); /* Soft shadow */
+            text-align: center;
+            max-width: 90%; /* Max width for responsiveness */
+            width: 400px; /* Fixed width for larger screens */
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 10px;
+            width: 300px; /* Fixed board size */
+            height: 300px; /* Fixed board size */
+            margin: 20px auto;
+            background-color: #e2e8f0; /* Light blue-gray for board background */
+            border-radius: 10px;
+            overflow: hidden; /* Ensure rounded corners apply to children */
+        }
+
+        .cell {
+            width: 100%;
+            height: 100%;
+            background-color: #cbd5e1; /* Even lighter blue-gray for cells */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 3.5rem; /* Larger font for X/O */
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            border-radius: 8px; /* Rounded corners for cells */
+            color: #334155; /* Darker text color */
+        }
+
+        .cell:hover {
+            background-color: #94a3b8; /* Darker hover effect */
+            transform: scale(1.02); /* Slight scale on hover */
+        }
+
+        .cell.x {
+            color: #ef4444; /* Red for X */
+        }
+
+        .cell.o {
+            color: #3b82f6; /* Blue for O */
+        }
+
+        .status {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #1e293b; /* Dark text */
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 15px; /* Space between buttons */
+            margin-top: 20px;
+        }
+
+        .game-button {
+            background-color: #22c55e; /* Green button */
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px; /* Rounded button */
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            box-shadow: 0 4px 6px rgba[0, 0, 0, 0.1]; /* Button shadow */
+        }
+
+        .game-button:hover {
+            background-color: #16a34a; /* Darker green on hover */
+            transform: translateY(-2px); /* Slight lift on hover */
+        }
+
+        .game-button.active {
+            background-color: #0d9488; /* Teal for active bot button */
+        }
+
+        /* Responsive adjustments for smaller screens */
+        @media (max-width: 480px) {
+            .board {
+                width: 280px;
+                height: 280px;
+            }
+            .cell {
+                font-size: 3rem;
+            }
+            .game-container {
+                padding: 20px;
+            }
+            .status {
+                font-size: 1.2rem;
+            }
+            .game-button {
+                padding: 10px 20px;
+                font-size: 1rem;
+            }
+            .button-group {
+                flex-direction: column; /* Stack buttons vertically on small screens */
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="text-4xl font-extrabold mb-6 text-gray-800">Tic Tac Toe</h1>
+        <div class="status" id="status">Player X's Turn</div>
+        <div class="board" id="board">
+            <div class="cell" data-cell-index="0"></div>
+            <div class="cell" data-cell-index="1"></div>
+            <div class="cell" data-cell-index="2"></div>
+            <div class="cell" data-cell-index="3"></div>
+            <div class="cell" data-cell-index="4"></div>
+            <div class="cell" data-cell-index="5"></div>
+            <div class="cell" data-cell-index="6"></div>
+            <div class="cell" data-cell-index="7"></div>
+            <div class="cell" data-cell-index="8"></div>
+        </div>
+        <div class="button-group">
+            <button class="game-button" id="resetButton">Reset Game</button>
+            <button class="game-button" id="botModeToggle">Play vs. Bot</button>
+        </div>
+    </div>
+
+    <script>
+        // Get references to DOM elements
+        const board = document.getElementById('board');
+        const cells = document.querySelectorAll('.cell');
+        const statusDisplay = document.getElementById('status');
+        const resetButton = document.getElementById('resetButton');
+        const botModeToggle = document.getElementById('botModeToggle');
+        const body = document.body; // Reference to the body element for background change
+
+        // Game state variables
+        let gameBoard = ['', '', '', '', '', '', '', '', '']; // Represents the 3x3 board
+        let currentPlayer = 'X'; // 'X' or 'O'
+        let gameActive = true; // True if the game is ongoing, false if won or drawn
+        let isBotMode = false; // Flag to enable/disable bot mode
+
+        // Background colors for each player
+        const playerXBgColor = '#fef2f2'; // Light red background for X
+        const playerOBgColor = '#eff6ff'; // Light blue background for O
+        const defaultBgColor = '#f0f2f5'; // Default background
+
+        // Winning conditions (all possible lines: rows, columns, diagonals)
+        const winningConditions = [
+            [0, 1, 2], // Top row
+            [3, 4, 5], // Middle row
+            [6, 7, 8], // Bottom row
+            [0, 3, 6], // Left column
+            [1, 4, 7], // Middle column
+            [2, 5, 8], // Right column
+            [0, 4, 8], // Diagonal from top-left
+            [2, 4, 6]  // Diagonal from top-right
+        ];
+
+        // Function to handle a cell click
+        async function handleCellClick(event) {
+            const clickedCell = event.target;
+            const clickedCellIndex = parseInt(clickedCell.dataset.cellIndex);
+
+            // If the cell is already filled, the game is not active,
+            // or it's the bot's turn in bot mode, do nothing.
+            if (gameBoard[clickedCellIndex] !== '' || !gameActive || (isBotMode && currentPlayer === 'O')) {
+                return;
+            }
+
+            // Make the player's move
+            makeMove(clickedCellIndex);
+
+            // If bot mode is active and the game is still active after player's move,
+            // and it's now the bot's turn, make a bot move after a short delay.
+            if (isBotMode && gameActive && currentPlayer === 'O') {
+                // Add a small delay to make bot's move feel more natural
+                await new Promise(resolve => setTimeout(resolve, 700));
+                makeBotMove();
+            }
+        }
+
+        // Helper function to make a move (used by both player and bot)
+        function makeMove(index) {
+            gameBoard[index] = currentPlayer;
+            cells[index].textContent = currentPlayer;
+            cells[index].classList.add(currentPlayer.toLowerCase());
+            checkResult();
+        }
+
+        // Function to check if the game has ended (win or draw)
+        function checkResult() {
+            let roundWon = false;
+
+            // Iterate through all winning conditions
+            for (let i = 0; i < winningConditions.length; i++) {
+                const winCondition = winningConditions[i];
+                // Get the values from the cells corresponding to the current winning condition
+                let a = gameBoard[winCondition[0]];
+                let b = gameBoard[winCondition[1]];
+                let c = gameBoard[winCondition[2]];
+
+                // If any cell in the condition is empty, continue to the next condition
+                if (a === '' || b === '' || c === '') {
+                    continue;
+                }
+                // If all three cells in the condition are the same, a player has won
+                if (a === b && b === c) {
+                    roundWon = true;
+                    break; // Exit the loop as a win is found
+                }
+            }
+
+            // If a player has won
+            if (roundWon) {
+                statusDisplay.textContent = `Player ${currentPlayer} Wins!`;
+                gameActive = false; // End the game
+                return;
+            }
+
+            // If there's no winner, check for a draw (all cells filled)
+            let roundDraw = !gameBoard.includes(''); // True if no empty cells remain
+            if (roundDraw) {
+                statusDisplay.textContent = 'Game Draw!';
+                gameActive = false; // End the game
+                return;
+            }
+
+            // If no win or draw, switch to the next player
+            changePlayer();
+        }
+
+        // Function to switch the current player and update background
+        function changePlayer() {
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            statusDisplay.textContent = `Player ${currentPlayer}'s Turn`;
+            // Update background color based on current player
+            body.style.backgroundColor = currentPlayer === 'X' ? playerXBgColor : playerOBgColor;
+        }
+
+        // Function to reset the game
+        function resetGame() {
+            gameBoard = ['', '', '', '', '', '', '', '', '']; // Clear the board array
+            gameActive = true; // Set game back to active
+            currentPlayer = 'X'; // Start with Player X
+            statusDisplay.textContent = `Player ${currentPlayer}'s Turn`; // Update status
+            body.style.backgroundColor = playerXBgColor; // Reset background to X's color
+
+            // Clear the content and styling from all cells
+            cells.forEach(cell => {
+                cell.textContent = '';
+                cell.classList.remove('x', 'o');
+            });
+
+            // If bot mode is active and it's the bot's turn (O), make the first bot move
+            if (isBotMode && currentPlayer === 'O') {
+                setTimeout(makeBotMove, 700); // Small delay for bot's first move
+            }
+        }
+
+        // Bot AI logic
+        function makeBotMove() {
+            if (!gameActive) return;
+
+            const emptyCells = [];
+            for (let i = 0; i < gameBoard.length; i++) {
+                if (gameBoard[i] === '') {
+                    emptyCells.push(i);
+                }
+            }
+
+            // If no empty cells, something is wrong (should be caught by draw check)
+            if (emptyCells.length === 0) return;
+
+            // Introduce a "mistake" probability (e.g., 20% chance of a random move)
+            const mistakeChance = 0.2; // 20% chance of making a "mistake"
+            if (Math.random() < mistakeChance && emptyCells.length > 1) {
+                // Make a random move if mistake chance hits and there's more than one option
+                const randomIndex = Math.floor(Math.random() * emptyCells.length);
+                makeMove(emptyCells[randomIndex]);
+                return;
+            }
+
+            // Try to win
+            let bestMove = findWinningMove(currentPlayer);
+            if (bestMove !== -1) {
+                makeMove(bestMove);
+                return;
+            }
+
+            // Block opponent's winning move
+            const opponent = currentPlayer === 'X' ? 'O' : 'X';
+            bestMove = findWinningMove(opponent);
+            if (bestMove !== -1) {
+                makeMove(bestMove);
+                return;
+            }
+
+            // Take center if available
+            if (gameBoard[4] === '') {
+                makeMove(4);
+                return;
+            }
+
+            // Take a corner if available
+            const corners = [0, 2, 6, 8];
+            for (let i = 0; i < corners.length; i++) {
+                if (gameBoard[corners[i]] === '') {
+                    makeMove(corners[i]);
+                    return;
+                }
+            }
+
+            // Take any remaining side if available
+            const sides = [1, 3, 5, 7];
+            for (let i = 0; i < sides.length; i++) {
+                if (gameBoard[sides[i]] === '') {
+                    makeMove(sides[i]);
+                    return;
+                }
+            }
+
+            // Fallback: if somehow no strategic move, pick a random available cell
+            const randomIndex = Math.floor(Math.random() * emptyCells.length);
+            makeMove(emptyCells[randomIndex]);
+        }
+
+        // Helper function to find a winning move for a given player
+        function findWinningMove(player) {
+            for (let i = 0; i < winningConditions.length; i++) {
+                const [a, b, c] = winningConditions[i];
+                const line = [gameBoard[a], gameBoard[b], gameBoard[c]];
+
+                // Check if placing 'player' in one of the empty spots completes the line
+                if (line.filter(cell => cell === player).length === 2 && line.includes('')) {
+                    if (gameBoard[a] === '' && gameBoard[b] === player && gameBoard[c] === player) return a;
+                    if (gameBoard[b] === '' && gameBoard[a] === player && gameBoard[c] === player) return b;
+                    if (gameBoard[c] === '' && gameBoard[a] === player && gameBoard[b] === player) return c;
+                }
+            }
+            return -1; // No winning move found
+        }
+
+        // Function to toggle bot mode
+        function toggleBotMode() {
+            isBotMode = !isBotMode;
+            botModeToggle.classList.toggle('active', isBotMode); // Add/remove 'active' class for styling
+            botModeToggle.textContent = isBotMode ? 'Playing vs. Bot' : 'Play vs. Bot';
+            resetGame(); // Reset game when mode changes
+        }
+
+        // Initial setup
+        window.onload = function() {
+            resetGame(); // Set initial background and game state
+        };
+
+        // Event Listeners
+        cells.forEach(cell => cell.addEventListener('click', handleCellClick));
+        resetButton.addEventListener('click', resetGame);
+        botModeToggle.addEventListener('click', toggleBotMode);
+    </script>
+</body>
+</html>
